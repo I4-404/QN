@@ -334,6 +334,8 @@
       <button id="newBtn" class="tool-btn-full">🗎 تصميم جديد</button>
       <button id="saveProjectBtn" class="tool-btn-full">💾 حفظ المشروع</button>
       <button id="loadProjectBtn" class="tool-btn-full">📁 فتح مشروع محفوظ</button>
+      <button id="saveDraftBtn" class="tool-btn-full">🗂 حفظ كمسودة باسم</button>
+      <button id="myDraftsBtn" class="tool-btn-full">📚 مسوداتي المحفوظة</button>
     </div>
 
     <div class="tools-section">
@@ -348,6 +350,9 @@
         <option value="1500x500">غلاف تويتر/X</option>
         <option value="820x312">غلاف فيسبوك</option>
         <option value="1000x1500">بينتيريست</option>
+        <option value="1200x627">منشور لينكدإن</option>
+        <option value="800x800">صورة بروفايل مربعة</option>
+        <option value="2560x1440">غلاف قناة يوتيوب</option>
         <option value="custom">مقاس مخصص…</option>
       </select>
       <div class="tool-row-inline">
@@ -393,6 +398,7 @@
       <button id="copyImgBtn" class="tool-btn-full">📋 نسخ الصورة للحافظة</button>
       <button id="shareImgBtn" class="tool-btn-full">📤 مشاركة سريعة (واتساب وغيره)</button>
       <button id="batchExportBtn" class="tool-btn-full">⬇ تصدير كل المقاسات الشائعة</button>
+      <button id="exportVideoBtn" class="tool-btn-full">🎬 تصدير فيديو قصير متحرك (WebM)</button>
     </div>
 
     <div class="tools-section">
@@ -428,6 +434,8 @@
         <button id="addStarBtn">★ نجمة</button>
         <button id="addHeartBtn">♥ قلب</button>
         <button id="addArrowBtn">➤ سهم</button>
+        <button id="addHexagonBtn">⬡ سداسي</button>
+        <button id="addBubbleBtn">💬 فقاعة كلام</button>
         <button id="dupBtn">⧉ نسخ العنصر</button>
         <button id="bringFrontBtn">⬆ لأعلى طبقة</button>
         <button id="sendBackBtn">⬇ لأسفل طبقة</button>
@@ -472,12 +480,13 @@
 const state = {
   canvasW: 1080, canvasH: 1080,
   background: { type:'gradient', from:'#8b5cf6', to:'#ec4899', angle:135, color:'#14121a', src:null, img:null, overlayColor:'#000000', overlayOpacity:0 },
-  elements: [], // {id,type,x,y,w,h,rot,z,text,fontFamily,fontSize,color,align,bold,italic,opacity,src,img,locked,hidden}
+  elements: [], // {id,type,x,y,w,h,rot,z,text,fontFamily,fontSize,color,align,bold,italic,opacity,src,img,locked,hidden,groupId}
   selectedId: null,
+  multiSelectIds: [], // ids of extra elements selected with Shift+click, for grouping
   zoom: 1,
   showGrid: false,
   snapToGrid: false,
-  effects: { vignette:0, grain:0, frameType:'none', frameColor:'#ffffff', frameWidth:24 }
+  effects: { vignette:0, grain:0, frameType:'none', frameColor:'#ffffff', frameWidth:24, textureType:'none', textureOpacity:50 }
 };
 let nextId = 1;
 let historyStack = [];
@@ -552,14 +561,38 @@ const BUILTIN_TEMPLATES = [
         {type:'text', x:100, y:400, w:880, h:200, rot:0, text:'كل عام والوطن بخير', fontFamily:'Changa', fontSize:74, color:'#ffffff', align:'center', bold:true, italic:false, opacity:1},
         {type:'text', x:100, y:620, w:880, h:80, rot:0, text:'عزّ الوطن بأهله', fontFamily:'Tajawal', fontSize:30, color:'#f0d98c', align:'center', bold:false, italic:false, opacity:.9}
       ]
+  }},
+  { name:'مينيمال أبيض', data:{
+      background:{type:'color', color:'#f5f3ef'},
+      elements:[
+        {type:'shape', shapeType:'line', x:490, y:340, w:100, h:4, rot:0, fill:'#1a1724', stroke:'#1a1724', strokeWidth:0, opacity:1},
+        {type:'text', x:120, y:380, w:840, h:220, rot:0, text:'اقتباسك البسيط والأنيق هنا', fontFamily:'Cairo', fontSize:48, color:'#1a1724', align:'center', bold:true, italic:false, opacity:1},
+        {type:'text', x:120, y:620, w:840, h:50, rot:0, text:'— الاسم', fontFamily:'Cairo', fontSize:20, color:'#6d6489', align:'center', bold:false, italic:false, opacity:1}
+      ]
+  }},
+  { name:'فقاعة حوار', data:{
+      background:{type:'gradient', from:'#134e5e', to:'#71b280', angle:135},
+      elements:[
+        {type:'shape', shapeType:'bubble', x:140, y:300, w:800, h:420, rot:0, fill:'#ffffff', stroke:'#ffffff', strokeWidth:0, opacity:1},
+        {type:'text', x:200, y:380, w:680, h:260, rot:0, text:'اكتب اقتباسك داخل فقاعة الحوار', fontFamily:'Tajawal', fontSize:42, color:'#134e5e', align:'center', bold:true, italic:false, opacity:1}
+      ]
   }}
 ];
 const GRADIENT_PRESETS = [
   ['#8b5cf6','#ec4899'], ['#1f1147','#7c2d92'], ['#0f2027','#2c5364'],
   ['#134e5e','#71b280'], ['#ff6a00','#ee0979'], ['#0f0c29','#302b63'],
-  ['#f7971e','#ffd200'], ['#16222a','#3a6073'], ['#0b3d2e','#1a5c46']
+  ['#f7971e','#ffd200'], ['#16222a','#3a6073'], ['#0b3d2e','#1a5c46'],
+  ['#000000','#434343'], ['#ff512f','#dd2476'], ['#00c6ff','#0072ff'],
+  ['#c31432','#240b36'], ['#11998e','#38ef7d'], ['#e1eec3','#f05053']
 ];
 const STICKER_EMOJIS = ['✨','🔥','💜','⭐','🌙','🕌','📿','🌸','💫','🦋','🍃','☀️','❤️','🎉','👑','💎','🤍','🌿','🕋','📖'];
+const STICKER_CATEGORIES = {
+  'رموز دينية': ['🕌','📿','🕋','📖','☪️','🤲','🌙','✨','🪔'],
+  'طبيعة': ['🌸','🌿','🍃','☀️','🌈','🌊','🌵','🌺','🍂','⛅','🌟','🔥'],
+  'حب ومشاعر': ['❤️','💜','🤍','💛','💙','💚','😍','🥰','💞','💘'],
+  'احتفالات': ['🎉','🎊','🎁','🎈','🥳','🍰','🎇','🎆'],
+  'رموز عامة': ['⭐','💫','💎','👑','🦋','🕊️','⚡','🔔','🏆','📌']
+};
 
 const QUOTE_LIBRARY = {
   'أذكار وأدعية': [
@@ -598,6 +631,25 @@ const QUOTE_LIBRARY = {
     {t:'بارك الله لكما وبارك عليكما وجمع بينكما في خير', a:'تهنئة زواج'},
     {t:'كل عام والوطن شامخ وأهله بخير', a:'تهنئة وطنية'},
     {t:'إنا لله وإنا إليه راجعون، عظّم الله أجركم', a:'عزاء ومواساة'}
+  ],
+  'علم ومعرفة': [
+    {t:'اطلبوا العلم من المهد إلى اللحد', a:'حكمة'},
+    {t:'من علّمني حرفًا صرت له عبدًا', a:'مقولة مأثورة'},
+    {t:'العلم نور والجهل ظلام', a:'حكمة'},
+    {t:'القراءة غذاء العقل كما الطعام غذاء الجسد', a:'مقولة'},
+    {t:'من سار على الدرب وصل', a:'مثل عربي'}
+  ],
+  'صداقة': [
+    {t:'الصديق وقت الضيق', a:'مثل عربي'},
+    {t:'رفيق الدرب قبل الطريق', a:'حكمة'},
+    {t:'الصداقة الحقيقية تنمو في الصمت', a:'مقولة'},
+    {t:'كن كالنحلة، لا تجرح أحداً وتترك أثراً طيباً', a:'حكمة'}
+  ],
+  'الأمهات': [
+    {t:'الجنة تحت أقدام الأمهات', a:'حديث شريف'},
+    {t:'أمي، يا أجمل كلمة نطق بها فمي', a:'مقولة'},
+    {t:'حضن الأم أول وطن', a:'مقولة'},
+    {t:'كل عام وأمي بخير، فهي نبض القلب وسر الحياة', a:'تهنئة عيد الأم'}
   ]
 };
 
@@ -609,21 +661,32 @@ const TEXT_STYLE_PRESETS = [
   {name:'نيون متوهج', fontFamily:'Reem Kufi', fontSize:70, color:'#38bdf8', bold:false, strokeWidth:0, shadowBlur:30, shadowColor:'#38bdf8', letterSpacing:0},
   {name:'محفور بالذهبي', fontFamily:'Markazi Text', fontSize:66, color:'#f0b429', bold:true, strokeWidth:2, strokeColor:'#7a5200', shadowBlur:8, shadowColor:'#000000', letterSpacing:0},
   {name:'مطبوع كلاسيك', fontFamily:'Jomhuria', fontSize:100, color:'#1a1724', bold:false, strokeWidth:0, shadowBlur:0, letterSpacing:2},
-  {name:'وردي ناعم', fontFamily:'Cairo', fontSize:48, color:'#ec4899', bold:true, strokeWidth:0, shadowBlur:0, letterSpacing:0}
+  {name:'وردي ناعم', fontFamily:'Cairo', fontSize:48, color:'#ec4899', bold:true, strokeWidth:0, shadowBlur:0, letterSpacing:0},
+  {name:'تباعد فخم', fontFamily:'Changa', fontSize:42, color:'#ffffff', bold:false, strokeWidth:0, shadowBlur:0, letterSpacing:6},
+  {name:'دفتر يدوي', fontFamily:'Rakkas', fontSize:58, color:'#3a2f22', bold:false, strokeWidth:0, shadowBlur:0, letterSpacing:0},
+  {name:'ظل درامي', fontFamily:'El Messiri', fontSize:64, color:'#ffffff', bold:true, strokeWidth:0, shadowBlur:22, shadowColor:'#000000', letterSpacing:0}
 ];
 
 const PATTERN_PRESETS = [
   {name:'نقاط', type:'dots'},
   {name:'خطوط مائلة', type:'diagonal'},
   {name:'شبكة', type:'grid'},
-  {name:'موجات', type:'waves'}
+  {name:'موجات', type:'waves'},
+  {name:'خطوط أفقية', type:'horizontal'},
+  {name:'دوائر', type:'circles'}
 ];
 const FRAME_PRESETS = [
   {name:'بدون إطار', type:'none'},
   {name:'إطار بسيط', type:'solid'},
   {name:'إطار مزدوج', type:'double'},
   {name:'إطار منقط', type:'dashed'},
-  {name:'زوايا مزخرفة', type:'corners'}
+  {name:'زوايا مزخرفة', type:'corners'},
+  {name:'زوايا دائرية', type:'rounded'},
+  {name:'بولارويد', type:'polaroid'},
+  {name:'ظل ناعم', type:'shadow'},
+  {name:'نيون متوهج', type:'neon'},
+  {name:'شريط فيلم', type:'filmstrip'},
+  {name:'ورق ممزق', type:'torn'}
 ];
 const IMAGE_FILTER_PRESETS = [
   {name:'عادي', brightness:100, contrast:100, saturate:100, grayscale:0, blur:0},
@@ -633,6 +696,39 @@ const IMAGE_FILTER_PRESETS = [
   {name:'بارد', brightness:98, contrast:105, saturate:85, grayscale:8, blur:0},
   {name:'دراماتيكي', brightness:92, contrast:140, saturate:110, grayscale:0, blur:0},
   {name:'ضبابي ناعم', brightness:104, contrast:96, saturate:105, grayscale:0, blur:2}
+];
+/* ---------- Blend modes (دمج الصور), زي أدوات الدمج في بيكس آرت ---------- */
+const BLEND_MODES = [
+  {value:'source-over', label:'عادي (بدون دمج)'},
+  {value:'screen',      label:'🌟 شفاف مضيء (Screen)'},
+  {value:'lighten',     label:'☀ تفتيح (Lighten)'},
+  {value:'color-dodge', label:'✨ توهج قوي (Glow)'},
+  {value:'multiply',    label:'🌑 تغميق/ظل (Multiply)'},
+  {value:'darken',      label:'⚫ تعتيم (Darken)'},
+  {value:'overlay',     label:'🌗 تراكب (Overlay)'},
+  {value:'soft-light',  label:'💡 ضوء ناعم (Soft Light)'},
+  {value:'hard-light',  label:'🔦 ضوء حاد (Hard Light)'},
+  {value:'difference',  label:'🌀 استبعاد الألوان (Difference)'},
+  {value:'exclusion',   label:'🌈 استبعاد ناعم (Exclusion)'}
+];
+/* ---------- Texture / grain overlay presets (تكسچر) — كلها مولّدة بالكانفاس، بدون صور خارجية ---------- */
+const TEXTURE_PRESETS = [
+  {name:'بدون تكسچر', type:'none'},
+  {name:'ورق قديم', type:'paper'},
+  {name:'خدوش فيلم', type:'scratches'},
+  {name:'نسيج قماش', type:'weave'},
+  {name:'تسريب ضوء', type:'lightLeak'},
+  {name:'رذاذ/بقع', type:'splatter'},
+  {name:'نقاط هاف-تون', type:'halftone'}
+];
+/* ---------- Duotone color-pair presets (تراكب لون ثنائي) ---------- */
+const DUOTONE_PRESETS = [
+  {name:'أزرق × برتقالي', shadow:'#0b2545', highlight:'#ff8c42'},
+  {name:'بنفسجي × وردي', shadow:'#2d1b4e', highlight:'#ff6bcb'},
+  {name:'أخضر × أصفر', shadow:'#0f3d2e', highlight:'#f4e04d'},
+  {name:'أحمر × أسود', shadow:'#0a0a0a', highlight:'#e63946'},
+  {name:'سيبيا كلاسيك', shadow:'#2b1d0e', highlight:'#e8c39e'},
+  {name:'سماوي × أبيض', shadow:'#022c43', highlight:'#f1faee'}
 ];
 
 /* ============================================================
@@ -898,7 +994,8 @@ function restoreSnapshot(json){
   state.elements = s.elements;
   state.elements.forEach(loadElementImage);
   state.selectedId = s.selectedId;
-  state.effects = s.effects || { vignette:0, grain:0, frameType:'none', frameColor:'#ffffff', frameWidth:24 };
+  state.multiSelectIds = [];
+  state.effects = s.effects || { vignette:0, grain:0, frameType:'none', frameColor:'#ffffff', frameWidth:24, textureType:'none', textureOpacity:50 };
   syncCanvasSize();
   renderProps();
   draw();
@@ -1019,6 +1116,117 @@ async function removeImageBackground(el){
   }
 }
 
+/* ============================================================
+   FAST COLOR-BASED BACKGROUND REMOVAL (بدون ذكاء اصطناعي)
+   يمسح أي لون خلفية (زي الأبيض أو الأخضر) فورًا بمقارنة كل بكسل
+   باللون المحدد؛ لا يحتاج إنترنت ولا نموذج ذكاء اصطناعي — فقط رياضة ألوان بسيطة وسريعة.
+   ============================================================ */
+function hexToRgb(hex){
+  const h = (hex||'#ffffff').replace('#','');
+  return { r:parseInt(h.substr(0,2),16)||0, g:parseInt(h.substr(2,2),16)||0, b:parseInt(h.substr(4,2),16)||0 };
+}
+function removeBackgroundByColor(el, hexColor, tolerance, feather){
+  return new Promise((resolve,reject)=>{
+    if(!el.img || !el.img.complete){ reject(new Error('no image')); return; }
+    try{
+      const w = el.img.naturalWidth || el.img.width;
+      const h = el.img.naturalHeight || el.img.height;
+      const tmp = document.createElement('canvas');
+      tmp.width = w; tmp.height = h;
+      const tctx = tmp.getContext('2d', {willReadFrequently:true});
+      tctx.drawImage(el.img, 0, 0, w, h);
+      const imgData = tctx.getImageData(0,0,w,h);
+      const data = imgData.data;
+      const target = hexToRgb(hexColor);
+      const edge = Math.max(1, tolerance);
+      const featherRange = Math.max(0, feather);
+      for(let i=0;i<data.length;i+=4){
+        const dr = data[i]-target.r, dg = data[i+1]-target.g, db = data[i+2]-target.b;
+        const dist = Math.sqrt(dr*dr+dg*dg+db*db);
+        if(dist <= edge){ data[i+3] = 0; }
+        else if(featherRange>0 && dist <= edge+featherRange){
+          const t = (dist-edge)/featherRange;
+          data[i+3] = Math.round(data[i+3]*t);
+        }
+      }
+      tctx.putImageData(imgData,0,0);
+      tmp.toBlob(blob=>{
+        if(!blob){ reject(new Error('toBlob failed')); return; }
+        resolve(URL.createObjectURL(blob));
+      }, 'image/png');
+    }catch(e){ reject(e); }
+  });
+}
+async function applyColorBgRemoval(el, hexColor, tolerance, feather){
+  const btn = document.getElementById('p_removeBgColor');
+  const originalLabel = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.style.opacity = .6; btn.textContent = '⏳ جارِ الإزالة…'; }
+  try{
+    const newUrl = await removeBackgroundByColor(el, hexColor, tolerance, feather);
+    if(!el.srcBeforeBgRemoval){ el.srcBeforeBgRemoval = el.src; }
+    el.src = newUrl;
+    el.img = null;
+    el.bgRemoved = true;
+    el.bgTolerance = tolerance;
+    el.bgFeather = feather;
+    el.lastPickedBgColor = hexColor;
+    loadElementImage(el);
+    draw(); renderProps(); pushHistory();
+  }catch(e){
+    console.error(e);
+    alert('تعذّرت إزالة الخلفية بهذه الطريقة، جرّب صورة أخرى أو غيّر اللون المحدد.');
+    if(btn){ btn.disabled = false; btn.style.opacity = 1; btn.textContent = originalLabel; }
+  }
+}
+function drawColorPickPreview(el){
+  const cnv = document.getElementById('p_colorPickCanvas');
+  if(!cnv || !el.img || !el.img.complete) return;
+  const ctx2 = cnv.getContext('2d', {willReadFrequently:true});
+  const iw = el.img.naturalWidth||el.img.width||1, ih = el.img.naturalHeight||el.img.height||1;
+  const scale = Math.min(cnv.width/iw, cnv.height/ih);
+  const dw = iw*scale, dh = ih*scale;
+  const dx = (cnv.width-dw)/2, dy = (cnv.height-dh)/2;
+  ctx2.clearRect(0,0,cnv.width,cnv.height);
+  ctx2.fillStyle = '#2a2438'; ctx2.fillRect(0,0,cnv.width,cnv.height);
+  ctx2.drawImage(el.img, dx, dy, dw, dh);
+}
+
+/* ============================================================
+   DUOTONE (تراكب لون ثنائي) — يحوّل الصورة إلى تدرّج بين لونين
+   حسب درجة الإضاءة (luminance) لكل بكسل، ويتم عمل cache للنتيجة
+   حتى لا يعاد الحساب في كل إعادة رسم.
+   ============================================================ */
+function getDuotoneCanvas(el){
+  if(!el.img || !el.img.complete) return null;
+  const shadow = el.duotoneShadow || '#1a1a2e';
+  const highlight = el.duotoneHighlight || '#f0b429';
+  const amt = (el.duotoneIntensity??100);
+  const key = `${el.img.src}|${shadow}|${highlight}|${amt}`;
+  if(el._duotoneCache && el._duotoneCache.key===key) return el._duotoneCache.canvas;
+  const w = el.img.naturalWidth || el.img.width, h = el.img.naturalHeight || el.img.height;
+  if(!w || !h) return null;
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tctx = tmp.getContext('2d', {willReadFrequently:true});
+  tctx.drawImage(el.img, 0, 0, w, h);
+  const imgData = tctx.getImageData(0,0,w,h);
+  const data = imgData.data;
+  const sh = hexToRgb(shadow), hi = hexToRgb(highlight);
+  const t = amt/100;
+  for(let i=0;i<data.length;i+=4){
+    const lum = (0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2]) / 255;
+    const r = sh.r + (hi.r-sh.r)*lum;
+    const g = sh.g + (hi.g-sh.g)*lum;
+    const b = sh.b + (hi.b-sh.b)*lum;
+    data[i]   = data[i]   + (r-data[i])*t;
+    data[i+1] = data[i+1] + (g-data[i+1])*t;
+    data[i+2] = data[i+2] + (b-data[i+2])*t;
+  }
+  tctx.putImageData(imgData,0,0);
+  el._duotoneCache = {key, canvas:tmp};
+  return tmp;
+}
+
 function drawBackground(){
   const b = state.background;
   if(b.type==='color'){
@@ -1071,11 +1279,35 @@ function drawBackground(){
         }
         ctx.stroke();
       }
+    } else if(b.patternType==='horizontal'){
+      for(let y=gap/2; y<canvas.height; y+=gap){
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke();
+      }
+    } else if(b.patternType==='circles'){
+      for(let y=gap/2; y<canvas.height; y+=gap){
+        for(let x=gap/2; x<canvas.width; x+=gap){
+          ctx.beginPath(); ctx.arc(x,y,gap*0.32,0,Math.PI*2); ctx.stroke();
+        }
+      }
     }
     ctx.restore();
   } else {
     ctx.fillStyle = '#111'; ctx.fillRect(0,0,canvas.width,canvas.height);
   }
+}
+function getShapeFillStyle(el){
+  if(el.fillType==='gradient'){
+    const rad = (el.fillAngle||135)*Math.PI/180;
+    const x1 = el.x + el.w/2 - Math.cos(rad)*el.w/2;
+    const y1 = el.y + el.h/2 - Math.sin(rad)*el.h/2;
+    const x2 = el.x + el.w/2 + Math.cos(rad)*el.w/2;
+    const y2 = el.y + el.h/2 + Math.sin(rad)*el.h/2;
+    const g = ctx.createLinearGradient(x1,y1,x2,y2);
+    g.addColorStop(0, el.fillFrom || el.fill || '#8b5cf6');
+    g.addColorStop(1, el.fillTo || '#ec4899');
+    return g;
+  }
+  return el.fill;
 }
 function roundRectPath(c,x,y,w,h,r){
   r = Math.max(0, Math.min(r, Math.abs(w)/2, Math.abs(h)/2));
@@ -1104,6 +1336,81 @@ function getGrainPattern(){
   grainPatternSize = 160;
   return grainPattern;
 }
+let _textureCache = null;
+function getTextureCanvas(type, w, h){
+  const key = type+'|'+w+'|'+h;
+  if(_textureCache && _textureCache.key===key) return _textureCache.canvas;
+  const tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  const tctx = tmp.getContext('2d');
+  if(type==='paper'){
+    const imgData = tctx.createImageData(w,h);
+    for(let i=0;i<imgData.data.length;i+=4){
+      const v = 185 + Math.random()*45;
+      imgData.data[i]=v; imgData.data[i+1]=v-8; imgData.data[i+2]=v-22; imgData.data[i+3]=255;
+    }
+    tctx.putImageData(imgData,0,0);
+    tctx.strokeStyle = 'rgba(110,90,60,.14)'; tctx.lineWidth = 1;
+    for(let i=0;i<90;i++){
+      const x1=Math.random()*w, y1=Math.random()*h;
+      tctx.beginPath(); tctx.moveTo(x1,y1);
+      tctx.lineTo(x1+(Math.random()-.5)*170, y1+(Math.random()-.5)*170);
+      tctx.stroke();
+    }
+  } else if(type==='scratches'){
+    for(let i=0;i<70;i++){
+      const x = Math.random()*w;
+      tctx.strokeStyle = `rgba(255,255,255,${0.05+Math.random()*0.28})`;
+      tctx.lineWidth = Math.random()<0.8 ? 1 : 2;
+      tctx.beginPath(); tctx.moveTo(x,0);
+      tctx.lineTo(x+(Math.random()-0.5)*70, h);
+      tctx.stroke();
+    }
+    for(let i=0;i<260;i++){
+      tctx.fillStyle = `rgba(255,255,255,${Math.random()*0.4})`;
+      tctx.fillRect(Math.random()*w, Math.random()*h, 1.4, 1.4);
+    }
+  } else if(type==='weave'){
+    const gap = Math.max(5, Math.round(Math.min(w,h)/180));
+    tctx.strokeStyle = 'rgba(0,0,0,.12)'; tctx.lineWidth = 1;
+    for(let x=-h;x<w;x+=gap){ tctx.beginPath(); tctx.moveTo(x,0); tctx.lineTo(x+h,h); tctx.stroke(); }
+    tctx.strokeStyle = 'rgba(255,255,255,.10)';
+    for(let x=-h;x<w;x+=gap){ tctx.beginPath(); tctx.moveTo(x+h,0); tctx.lineTo(x,h); tctx.stroke(); }
+  } else if(type==='lightLeak'){
+    const g1 = tctx.createRadialGradient(w*0.86,h*0.08,0, w*0.86,h*0.08, Math.max(w,h)*0.62);
+    g1.addColorStop(0,'rgba(255,180,80,.9)');
+    g1.addColorStop(.4,'rgba(255,90,120,.5)');
+    g1.addColorStop(1,'rgba(255,90,120,0)');
+    tctx.fillStyle = g1; tctx.fillRect(0,0,w,h);
+    const g2 = tctx.createRadialGradient(w*0.08,h*0.95,0, w*0.08,h*0.95, Math.max(w,h)*0.48);
+    g2.addColorStop(0,'rgba(120,180,255,.55)');
+    g2.addColorStop(1,'rgba(120,180,255,0)');
+    tctx.fillStyle = g2; tctx.fillRect(0,0,w,h);
+  } else if(type==='splatter'){
+    for(let i=0;i<28;i++){
+      const x=Math.random()*w, y=Math.random()*h, r=8+Math.random()*36;
+      tctx.fillStyle = `rgba(0,0,0,${0.08+Math.random()*0.16})`;
+      tctx.beginPath(); tctx.arc(x,y,r,0,Math.PI*2); tctx.fill();
+      for(let d=0; d<5; d++){
+        tctx.beginPath();
+        tctx.arc(x+(Math.random()-.5)*r*2, y+(Math.random()-.5)*r*2, r*0.14, 0, Math.PI*2);
+        tctx.fill();
+      }
+    }
+  } else if(type==='halftone'){
+    tctx.fillStyle = 'rgba(0,0,0,.55)';
+    const gap = Math.max(10, Math.round(Math.min(w,h)/80));
+    for(let y=gap/2;y<h;y+=gap){
+      for(let x=gap/2;x<w;x+=gap){
+        const r = 1+Math.random()*3.5;
+        tctx.beginPath(); tctx.arc(x,y,r,0,Math.PI*2); tctx.fill();
+      }
+    }
+  }
+  _textureCache = {key, canvas:tmp};
+  return tmp;
+}
+const TEXTURE_BLEND_MAP = {paper:'multiply', scratches:'screen', weave:'overlay', lightLeak:'screen', splatter:'multiply', halftone:'multiply'};
 function drawEffects(){
   const fx = state.effects || {};
   const w = canvas.width, h = canvas.height;
@@ -1112,6 +1419,14 @@ function drawEffects(){
     ctx.globalAlpha = fx.grain/100;
     ctx.fillStyle = getGrainPattern();
     ctx.fillRect(0,0,w,h);
+    ctx.restore();
+  }
+  const tx = fx.textureType || 'none';
+  if(tx!=='none' && (fx.textureOpacity||0)>0){
+    ctx.save();
+    ctx.globalAlpha = fx.textureOpacity/100;
+    try{ ctx.globalCompositeOperation = TEXTURE_BLEND_MAP[tx] || 'source-over'; }catch(e){}
+    ctx.drawImage(getTextureCanvas(tx, w, h), 0, 0);
     ctx.restore();
   }
   if(fx.vignette>0){
@@ -1149,6 +1464,53 @@ function drawEffects(){
         ctx.moveTo(x, y+len*sy); ctx.lineTo(x,y); ctx.lineTo(x+len*sx, y);
         ctx.stroke();
       });
+    } else if(ft==='rounded'){
+      ctx.strokeStyle = col; ctx.lineWidth = fw;
+      roundRectPath(ctx, fw/2, fw/2, w-fw, h-fw, Math.min(w,h)*0.09);
+      ctx.stroke();
+    } else if(ft==='polaroid'){
+      ctx.fillStyle = col;
+      const side = fw*0.7, top = fw*0.7, bottom = fw*3.2;
+      ctx.fillRect(0,0,w,top);
+      ctx.fillRect(0,h-bottom,w,bottom);
+      ctx.fillRect(0,0,side,h);
+      ctx.fillRect(w-side,0,side,h);
+    } else if(ft==='shadow'){
+      ctx.shadowColor = 'rgba(0,0,0,.55)';
+      ctx.shadowBlur = fw*1.4;
+      ctx.strokeStyle = col; ctx.lineWidth = Math.max(4,fw*0.5);
+      ctx.strokeRect(fw*0.6, fw*0.6, w-fw*1.2, h-fw*1.2);
+    } else if(ft==='neon'){
+      ctx.shadowColor = col; ctx.shadowBlur = fw*1.2;
+      ctx.strokeStyle = col; ctx.lineWidth = Math.max(3,fw*0.22);
+      ctx.strokeRect(fw*0.5, fw*0.5, w-fw, h-fw);
+      ctx.shadowBlur = fw*0.5;
+      ctx.lineWidth = Math.max(1,fw*0.08);
+      ctx.strokeStyle = '#ffffff';
+      ctx.strokeRect(fw*0.5, fw*0.5, w-fw, h-fw);
+    } else if(ft==='filmstrip'){
+      const barH = fw*1.6;
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0,0,w,barH);
+      ctx.fillRect(0,h-barH,w,barH);
+      ctx.fillStyle = (col==='#ffffff' || col==='#fff') ? '#e9e9e9' : col;
+      const holeR = barH*0.22, gap2 = holeR*3.4;
+      for(let x=gap2/2; x<w; x+=gap2){
+        ctx.beginPath(); ctx.arc(x, barH/2, holeR, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, h-barH/2, holeR, 0, Math.PI*2); ctx.fill();
+      }
+    } else if(ft==='torn'){
+      ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, fw*0.25);
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      const amp = fw*0.4, step = 16;
+      const jag = t => Math.sin(t*1.7)*amp*0.6 + Math.sin(t*0.53)*amp*0.4;
+      ctx.beginPath();
+      for(let x=0;x<=w;x+=step){ const y = jag(x/step); if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+      for(let y=0;y<=h;y+=step){ const x = w+jag(y/step); ctx.lineTo(x,y); }
+      for(let x=w;x>=0;x-=step){ const y = h+jag(x/step); ctx.lineTo(x,y); }
+      for(let y=h;y>=0;y-=step){ const x = jag(y/step); ctx.lineTo(x,y); }
+      ctx.closePath();
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -1178,6 +1540,7 @@ function drawElement(el){
   ctx.rotate((el.rot||0)*Math.PI/180);
   ctx.translate(-cx,-cy);
   ctx.globalAlpha = el.opacity==null?1:el.opacity;
+  try{ ctx.globalCompositeOperation = el.blendMode || 'source-over'; }catch(e){}
 
   if(el.type==='text'){
     if(el.bgOpacity>0){
@@ -1234,11 +1597,12 @@ function drawElement(el){
     ctx.translate(el.x+el.w/2, el.y+el.h/2);
     ctx.scale(el.flipH?-1:1, el.flipV?-1:1);
     ctx.translate(-(el.x+el.w/2), -(el.y+el.h/2));
-    ctx.drawImage(el.img, el.x, el.y, el.w, el.h);
+    const drawSrc = el.duotone ? (getDuotoneCanvas(el) || el.img) : el.img;
+    ctx.drawImage(drawSrc, el.x, el.y, el.w, el.h);
     ctx.restore();
     ctx.filter = 'none';
   } else if(el.type==='shape'){
-    ctx.fillStyle = el.fill;
+    ctx.fillStyle = getShapeFillStyle(el);
     if(el.shapeType==='rect'){
       roundRectPath(ctx, el.x, el.y, el.w, el.h, el.radius||0);
       ctx.fill();
@@ -1252,7 +1616,7 @@ function drawElement(el){
       ctx.beginPath();
       ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(2, el.h);
-      ctx.strokeStyle = el.fill;
+      ctx.strokeStyle = getShapeFillStyle(el);
       ctx.moveTo(el.x, el.y+el.h/2);
       ctx.lineTo(el.x+el.w, el.y+el.h/2);
       ctx.stroke();
@@ -1288,6 +1652,33 @@ function drawElement(el){
       ctx.closePath();
       ctx.fill();
       if(el.strokeWidth>0){ ctx.strokeStyle=el.stroke; ctx.lineWidth=el.strokeWidth; ctx.stroke(); }
+    } else if(el.shapeType==='hexagon'){
+      const cx = el.x+el.w/2, cy = el.y+el.h/2;
+      const rx = el.w/2, ry = el.h/2;
+      ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const a = (Math.PI/3)*i - Math.PI/2;
+        const px = cx + Math.cos(a)*rx, py = cy + Math.sin(a)*ry;
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      if(el.strokeWidth>0){ ctx.strokeStyle=el.stroke; ctx.lineWidth=el.strokeWidth; ctx.stroke(); }
+    } else if(el.shapeType==='bubble'){
+      const w=el.w, h=el.h, x=el.x, y=el.y;
+      const bodyH = h*0.78, r = Math.min(24, w*0.12, bodyH*0.35);
+      roundRectPath(ctx, x, y, w, bodyH, r);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x+w*0.22, y+bodyH);
+      ctx.lineTo(x+w*0.12, y+h);
+      ctx.lineTo(x+w*0.42, y+bodyH);
+      ctx.closePath();
+      ctx.fill();
+      if(el.strokeWidth>0){
+        ctx.strokeStyle=el.stroke; ctx.lineWidth=el.strokeWidth;
+        roundRectPath(ctx, x, y, w, bodyH, r); ctx.stroke();
+      }
     } else if(el.shapeType==='arrow'){
       const w=el.w, h=el.h, x=el.x, y=el.y;
       const shaftH = h*0.36, headW = w*0.32;
@@ -1366,6 +1757,16 @@ let snapGuides = {v:false, h:false};
 function draw(){
   drawBackground();
   state.elements.slice().sort((a,b)=>a.z-b.z).forEach(el=>{ if(!el.hidden) drawElement(el); });
+  if(state.multiSelectIds && state.multiSelectIds.length){
+    ctx.save();
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+    state.multiSelectIds.forEach(id=>{
+      const e = state.elements.find(x=>x.id===id);
+      if(e) ctx.strokeRect(e.x-3, e.y-3, e.w+6, e.h+6);
+    });
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
   drawEffects();
   if(drag && drag.mode==='move' && (snapGuides.v || snapGuides.h)){
     ctx.save();
@@ -1422,14 +1823,27 @@ canvas.addEventListener('pointerdown', e=>{
   const selectedEl = state.elements.find(el=>el.id===state.selectedId);
   const handle = (selectedEl && !selectedEl.locked) ? handleTest(selectedEl, p.x, p.y) : null;
   if(handle){
-    drag = { mode:handle, id:selectedEl.id, startX:p.x, startY:p.y, orig:{...selectedEl} };
+    drag = { mode:handle, id:selectedEl.id, startX:p.x, startY:p.y, orig:{...selectedEl}, shift:e.shiftKey,
+      groupOrig: selectedEl.groupId ? state.elements.filter(x=>x.groupId===selectedEl.groupId).map(x=>({id:x.id, x:x.x, y:x.y})) : null };
     return;
   }
   const hit = hitTest(p.x,p.y);
+  if(e.shiftKey && hit){
+    // Shift+click: toggle multi-selection for grouping, keep last-clicked as primary for the props panel
+    const idx = state.multiSelectIds.indexOf(hit.id);
+    if(idx>=0) state.multiSelectIds.splice(idx,1); else state.multiSelectIds.push(hit.id);
+    if(state.selectedId!=null && !state.multiSelectIds.includes(state.selectedId)) state.multiSelectIds.push(state.selectedId);
+    state.selectedId = hit.id;
+    renderProps();
+    draw();
+    return;
+  }
+  state.multiSelectIds = [];
   state.selectedId = hit ? hit.id : null;
   renderProps();
   if(hit && !hit.locked){
-    drag = { mode:'move', id:hit.id, startX:p.x, startY:p.y, orig:{...hit} };
+    drag = { mode:'move', id:hit.id, startX:p.x, startY:p.y, orig:{...hit},
+      groupOrig: hit.groupId ? state.elements.filter(x=>x.groupId===hit.groupId).map(x=>({id:x.id, x:x.x, y:x.y})) : null };
   }
   draw();
 });
@@ -1450,8 +1864,26 @@ window.addEventListener('pointermove', e=>{
       el.x = Math.round(el.x/g)*g;
       el.y = Math.round(el.y/g)*g;
     }
+    // move the rest of the group by the same final offset
+    if(drag.groupOrig){
+      const finalDx = el.x - drag.orig.x, finalDy = el.y - drag.orig.y;
+      drag.groupOrig.forEach(g=>{
+        if(g.id===el.id) return;
+        const other = state.elements.find(x=>x.id===g.id);
+        if(other && !other.locked){ other.x = g.x+finalDx; other.y = g.y+finalDy; }
+      });
+    }
   } else if(drag.mode==='resize'){
-    el.w = Math.max(30, drag.orig.w+dx); el.h = Math.max(20, drag.orig.h+dy);
+    if(e.shiftKey && drag.orig.w>0 && drag.orig.h>0){
+      // aspect-ratio-locked resize: follow the larger axis movement
+      const ratio = drag.orig.w/drag.orig.h;
+      const newW = Math.max(30, drag.orig.w+dx);
+      const newH = Math.max(20, drag.orig.h+dy);
+      if(Math.abs(dx) > Math.abs(dy)){ el.w = newW; el.h = Math.max(20, newW/ratio); }
+      else { el.h = newH; el.w = Math.max(30, newH*ratio); }
+    } else {
+      el.w = Math.max(30, drag.orig.w+dx); el.h = Math.max(20, drag.orig.h+dy);
+    }
   } else if(drag.mode==='rotate'){
     const cx = el.x+el.w/2, cy = el.y+el.h/2;
     const angle = Math.atan2(p.y-cy, p.x-cx)*180/Math.PI + 90;
@@ -1527,6 +1959,8 @@ function addShapeElement(shapeType){
   if(shapeType==='star'){ el.w=240; el.h=240; el.x=state.canvasW/2-120; el.y=state.canvasH/2-120; }
   if(shapeType==='heart'){ el.w=240; el.h=220; el.x=state.canvasW/2-120; el.y=state.canvasH/2-110; }
   if(shapeType==='arrow'){ el.w=320; el.h=100; el.x=state.canvasW/2-160; el.y=state.canvasH/2-50; }
+  if(shapeType==='hexagon'){ el.w=260; el.h=240; el.x=state.canvasW/2-130; el.y=state.canvasH/2-120; }
+  if(shapeType==='bubble'){ el.w=320; el.h=220; el.x=state.canvasW/2-160; el.y=state.canvasH/2-110; }
   state.elements.push(el);
   state.selectedId = el.id;
   draw(); renderProps(); pushHistory();
@@ -1547,6 +1981,22 @@ function duplicateSelected(){
   const copy = {...el, id:nextId++, x:el.x+24, y:el.y+24, z:state.elements.length};
   state.elements.push(copy);
   state.selectedId = copy.id;
+  draw(); renderProps(); pushHistory();
+}
+function groupSelected(){
+  const ids = new Set(state.multiSelectIds);
+  if(state.selectedId!=null) ids.add(state.selectedId);
+  if(ids.size < 2) return;
+  const gid = 'g'+(nextId++);
+  state.elements.forEach(e=>{ if(ids.has(e.id)) e.groupId = gid; });
+  state.multiSelectIds = [];
+  draw(); renderProps(); pushHistory();
+}
+function ungroupSelected(){
+  const el = state.elements.find(e=>e.id===state.selectedId);
+  if(!el || !el.groupId) return;
+  const gid = el.groupId;
+  state.elements.forEach(e=>{ if(e.groupId===gid) delete e.groupId; });
   draw(); renderProps(); pushHistory();
 }
 function deleteSelected(){
@@ -1572,7 +2022,17 @@ function renderProps(){
     renderLayersList();
     return;
   }
+  const multiCount = new Set([...state.multiSelectIds, el.id]).size;
   let html = '<h3>خصائص العنصر</h3>';
+  if(multiCount>=2 || el.groupId){
+    html += `
+      <div class="prop-group">
+        <h3>🔗 تجميع العناصر</h3>
+        <div class="drawer-hint" style="margin:0 0 8px;">اضغط Shift واضغط على عناصر تانية في التصميم لإضافتها للتحديد، وبعدين جمّعها عشان تتحرك مع بعض.</div>
+        ${multiCount>=2 ? `<button class="upload-btn" id="p_group" style="margin:0 0 8px;">🔗 تجميع (${multiCount}) عناصر</button>` : ''}
+        ${el.groupId ? `<button class="danger-btn" id="p_ungroup" style="border-color:var(--teal);color:var(--teal);">✂ فك التجميع</button>` : ''}
+      </div>`;
+  }
   if(el.type==='text'){
     html += `
       <div class="prop-group">
@@ -1624,9 +2084,19 @@ function renderProps(){
       </div>`;
   }
   if(el.type==='shape'){
+    const isGrad = el.fillType==='gradient';
     html += `
       <div class="prop-group">
-        <div class="prop-row"><label>اللون</label><input type="color" id="p_fill" value="${el.fill}"></div>
+        <div class="prop-row"><label>نوع التعبئة</label></div>
+        <div class="style-btns" style="margin-bottom:8px;">
+          <button id="p_fillSolid" class="${!isGrad?'active':''}">لون واحد</button>
+          <button id="p_fillGradient" class="${isGrad?'active':''}">تدرج لوني</button>
+        </div>
+        ${!isGrad ? `
+        <div class="prop-row"><label>اللون</label><input type="color" id="p_fill" value="${el.fill}"></div>` : `
+        <div class="prop-row"><label>من لون</label><input type="color" id="p_fillFrom" value="${el.fillFrom||el.fill||'#8b5cf6'}"></div>
+        <div class="prop-row"><label>إلى لون</label><input type="color" id="p_fillTo" value="${el.fillTo||'#ec4899'}"></div>
+        <div class="prop-row"><label>زاوية التدرج</label><input type="range" id="p_fillAngle" min="0" max="360" value="${el.fillAngle||135}"></div>`}
         ${el.shapeType!=='line'?`
         <div class="prop-row"><label>لون الحد</label><input type="color" id="p_stroke" value="${el.stroke||'#ffffff'}"></div>
         <div class="prop-row"><label>سمك الحد</label><input type="range" id="p_strokeWidth" min="0" max="20" value="${el.strokeWidth||0}"></div>`:''}
@@ -1636,13 +2106,33 @@ function renderProps(){
   if(el.type==='image'){
     html += `
       <div class="prop-group">
-        <h3>إزالة الخلفية</h3>
+        <h3>⚡ إزالة الخلفية باللون (سريعة، بدون AI)</h3>
+        <div class="drawer-hint">اضغط على معاينة الصورة تحت لاختيار لون الخلفية (زي الأبيض أو الأخضر)، اضبط الحساسية، واضغط "إزالة" — يمسحها فورًا من غير ما ينتظر تحميل أي نموذج ذكاء اصطناعي.</div>
+        <canvas id="p_colorPickCanvas" width="220" height="140" style="width:100%;height:110px;border-radius:8px;border:1px solid var(--border);cursor:crosshair;display:block;margin-bottom:10px;"></canvas>
+        <div class="prop-row"><label>اللون المحدد</label><input type="color" id="p_bgColorPick" value="${el.lastPickedBgColor||'#ffffff'}"></div>
+        <div class="prop-row"><label>الحساسية <span id="p_bgToleranceVal">${el.bgTolerance||40}</span></label><input type="range" id="p_bgTolerance" min="1" max="150" value="${el.bgTolerance||40}"></div>
+        <div class="prop-row"><label>نعومة الحواف <span id="p_bgFeatherVal">${el.bgFeather??20}</span></label><input type="range" id="p_bgFeather" min="0" max="60" value="${el.bgFeather??20}"></div>
+        <button class="danger-btn" id="p_removeBgColor" style="border-color:var(--amber);color:var(--amber);">⚡ إزالة الخلفية بهذا اللون</button>
+      </div>
+      <div class="prop-group">
+        <h3>إزالة الخلفية بالذكاء الاصطناعي</h3>
         <button class="danger-btn" id="p_removeBg" style="border-color:var(--teal);color:var(--teal);">✂ إزالة خلفية الصورة (AI)</button>
         ${el.bgRemoved ? `<div style="font-size:11px;color:var(--muted2);margin-top:6px;">تمت إزالة الخلفية بالفعل. <span id="p_undoRemoveBg" style="color:var(--teal);cursor:pointer;text-decoration:underline;">استرجاع الصورة الأصلية</span></div>` : ''}
       </div>
       <div class="prop-group">
         <h3>فلاتر جاهزة</h3>
         <div class="style-preset-grid" id="imgFilterPresetGrid"></div>
+      </div>
+      <div class="prop-group">
+        <h3>🎨 تراكب لون ثنائي (Duotone)</h3>
+        <div class="style-btns" style="margin-bottom:8px;">
+          <button id="p_duotoneToggle" class="${el.duotone?'active':''}">${el.duotone?'✓ الدمج اللوني مفعّل':'تفعيل التراكب اللوني'}</button>
+        </div>
+        <div class="drawer-hint" style="margin:0 0 8px;">يحوّل الصورة لدرجتين لونيتين بس (ظل + إضاءة) — اختر من الجاهز أو حدد ألوانك.</div>
+        <div class="style-preset-grid" id="duotonePresetGrid" style="margin-bottom:10px;"></div>
+        <div class="prop-row"><label>لون الظل (الغامق)</label><input type="color" id="p_duotoneShadow" value="${el.duotoneShadow||'#1a1a2e'}"></div>
+        <div class="prop-row"><label>لون الإضاءة (الفاتح)</label><input type="color" id="p_duotoneHighlight" value="${el.duotoneHighlight||'#f0b429'}"></div>
+        <div class="prop-row"><label>قوة التأثير</label><input type="range" id="p_duotoneIntensity" min="0" max="100" value="${el.duotoneIntensity??100}"></div>
       </div>
       <div class="prop-group">
         <h3>فلاتر الصورة</h3>
@@ -1666,6 +2156,14 @@ function renderProps(){
     <div class="prop-group">
       <div class="prop-row"><label>الشفافية</label><input type="range" id="p_opacity" min="0" max="1" step="0.05" value="${el.opacity==null?1:el.opacity}"></div>
       <div class="prop-row"><label>الدوران</label><input type="range" id="p_rot" min="-180" max="180" value="${el.rot||0}"></div>
+      <div class="drawer-hint" style="margin:2px 0 0;">💡 اضغط مع الاستمرار على Shift أثناء سحب مقبض التحجيم (الزاوية) للحفاظ على نسبة الأبعاد.</div>
+    </div>
+    <div class="prop-group">
+      <h3>🌗 دمج مع العناصر تحته (Blend)</h3>
+      <div class="prop-row"><label>وضع الدمج</label>
+        <select id="p_blendMode">${BLEND_MODES.map(b=>`<option value="${b.value}" ${(el.blendMode||'source-over')===b.value?'selected':''}>${b.label}</option>`).join('')}</select>
+      </div>
+      <div class="drawer-hint" style="margin:6px 0 0;">جرّب "شفاف مضيء" لتأثير توهج، أو "تغميق/ظل" لتأثير مظلم فوق العناصر تحته — تمامًا زي أدوات الدمج في بيكس آرت. اجمعها مع الشفافية للتحكم في القوة.</div>
     </div>
     <div class="prop-group">
       <div class="align-btns">
@@ -1697,6 +2195,8 @@ function renderProps(){
   content.innerHTML = html;
 
   const q = id=>document.getElementById(id);
+  if(q('p_group')) q('p_group').onclick = groupSelected;
+  if(q('p_ungroup')) q('p_ungroup').onclick = ungroupSelected;
   if(el.type==='text'){
     q('p_font').onchange = e=>{ el.fontFamily=e.target.value; draw(); pushHistory(); };
     q('p_size').oninput = e=>{ el.fontSize=+e.target.value; draw(); };
@@ -1739,8 +2239,19 @@ function renderProps(){
     q('p_curveRadius').onchange = ()=>pushHistory();
   }
   if(el.type==='shape'){
-    q('p_fill').oninput = e=>{ el.fill=e.target.value; draw(); };
-    q('p_fill').onchange = ()=>pushHistory();
+    q('p_fillSolid').onclick = ()=>{ el.fillType='solid'; draw(); renderProps(); pushHistory(); };
+    q('p_fillGradient').onclick = ()=>{ el.fillType='gradient'; if(!el.fillFrom) el.fillFrom=el.fill; draw(); renderProps(); pushHistory(); };
+    if(el.fillType==='gradient'){
+      q('p_fillFrom').oninput = e=>{ el.fillFrom=e.target.value; draw(); };
+      q('p_fillFrom').onchange = ()=>pushHistory();
+      q('p_fillTo').oninput = e=>{ el.fillTo=e.target.value; draw(); };
+      q('p_fillTo').onchange = ()=>pushHistory();
+      q('p_fillAngle').oninput = e=>{ el.fillAngle=+e.target.value; draw(); };
+      q('p_fillAngle').onchange = ()=>pushHistory();
+    } else {
+      q('p_fill').oninput = e=>{ el.fill=e.target.value; draw(); };
+      q('p_fill').onchange = ()=>pushHistory();
+    }
     if(el.shapeType!=='line'){
       q('p_stroke').oninput = e=>{ el.stroke=e.target.value; draw(); };
       q('p_stroke').onchange = ()=>pushHistory();
@@ -1770,9 +2281,52 @@ function renderProps(){
       input.oninput = e=>{ el[prop]=+e.target.value; draw(); };
       input.onchange = ()=>pushHistory();
     });
+    q('p_duotoneToggle').onclick = ()=>{ el.duotone = !el.duotone; draw(); renderProps(); pushHistory(); };
+    const dpg = q('duotonePresetGrid');
+    DUOTONE_PRESETS.forEach(dp=>{
+      const div = document.createElement('div');
+      div.className = 'style-preset';
+      div.style.fontSize = '11.5px';
+      div.style.background = `linear-gradient(135deg,${dp.shadow},${dp.highlight})`;
+      div.style.color = '#fff';
+      div.style.textShadow = '0 1px 3px rgba(0,0,0,.6)';
+      div.textContent = dp.name;
+      div.onclick = ()=>{
+        el.duotone = true; el.duotoneShadow = dp.shadow; el.duotoneHighlight = dp.highlight;
+        draw(); renderProps(); pushHistory();
+      };
+      dpg.appendChild(div);
+    });
+    q('p_duotoneShadow').oninput = e=>{ el.duotoneShadow=e.target.value; el.duotone=true; draw(); };
+    q('p_duotoneShadow').onchange = ()=>{ renderProps(); pushHistory(); };
+    q('p_duotoneHighlight').oninput = e=>{ el.duotoneHighlight=e.target.value; el.duotone=true; draw(); };
+    q('p_duotoneHighlight').onchange = ()=>{ renderProps(); pushHistory(); };
+    q('p_duotoneIntensity').oninput = e=>{ el.duotoneIntensity=+e.target.value; draw(); };
+    q('p_duotoneIntensity').onchange = ()=>pushHistory();
     q('p_removeBg').onclick = ()=> removeImageBackground(el);
     if(q('p_undoRemoveBg')) q('p_undoRemoveBg').onclick = ()=>{
       if(el.srcBeforeBgRemoval){ el.src = el.srcBeforeBgRemoval; el.srcBeforeBgRemoval = null; el.bgRemoved = false; el.img = null; loadElementImage(el); draw(); renderProps(); pushHistory(); }
+    };
+    drawColorPickPreview(el);
+    const pickCanvas = q('p_colorPickCanvas');
+    if(pickCanvas){
+      pickCanvas.onclick = e=>{
+        const rect = pickCanvas.getBoundingClientRect();
+        const clickX = Math.round((e.clientX-rect.left) * (pickCanvas.width/rect.width));
+        const clickY = Math.round((e.clientY-rect.top) * (pickCanvas.height/rect.height));
+        const cx = Math.max(0, Math.min(pickCanvas.width-1, clickX));
+        const cy = Math.max(0, Math.min(pickCanvas.height-1, clickY));
+        try{
+          const px = pickCanvas.getContext('2d').getImageData(cx, cy, 1, 1).data;
+          const hex = '#' + [px[0],px[1],px[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
+          q('p_bgColorPick').value = hex;
+        }catch(err){}
+      };
+    }
+    q('p_bgTolerance').oninput = e=>{ q('p_bgToleranceVal').textContent = e.target.value; };
+    q('p_bgFeather').oninput = e=>{ q('p_bgFeatherVal').textContent = e.target.value; };
+    q('p_removeBgColor').onclick = ()=>{
+      applyColorBgRemoval(el, q('p_bgColorPick').value, +q('p_bgTolerance').value, +q('p_bgFeather').value);
     };
     q('p_flipH').onclick = ()=>{ el.flipH=!el.flipH; draw(); renderProps(); pushHistory(); };
     q('p_flipV').onclick = ()=>{ el.flipV=!el.flipV; draw(); renderProps(); pushHistory(); };
@@ -1784,6 +2338,7 @@ function renderProps(){
   q('p_opacity').onchange = ()=>pushHistory();
   q('p_rot').oninput = e=>{ el.rot=+e.target.value; draw(); };
   q('p_rot').onchange = ()=>pushHistory();
+  q('p_blendMode').onchange = e=>{ el.blendMode=e.target.value; draw(); pushHistory(); };
   q('p_centerH').onclick = ()=>{ el.x = state.canvasW/2 - el.w/2; draw(); pushHistory(); };
   q('p_centerV').onclick = ()=>{ el.y = state.canvasH/2 - el.h/2; draw(); pushHistory(); };
   q('p_alignLeft').onclick = ()=>{ el.x = 0; draw(); pushHistory(); };
@@ -1806,7 +2361,7 @@ function renderLayersList(){
   const sorted = state.elements.slice().sort((a,b)=>b.z-a.z);
   list.innerHTML = sorted.map(el=>{
     const icon = el.type==='text' ? '🔤' : (el.type==='shape' ? '◆' : '🖼');
-    const defaultLabel = el.type==='shape' ? ('شكل: '+(el.shapeType==='rect'?'مربع':el.shapeType==='ellipse'?'دائرة':el.shapeType==='line'?'خط':el.shapeType==='triangle'?'مثلث':el.shapeType==='star'?'نجمة':el.shapeType==='heart'?'قلب':el.shapeType==='arrow'?'سهم':el.shapeType)) : (el.text||el.src||'عنصر');
+    const defaultLabel = el.type==='shape' ? ('شكل: '+(el.shapeType==='rect'?'مربع':el.shapeType==='ellipse'?'دائرة':el.shapeType==='line'?'خط':el.shapeType==='triangle'?'مثلث':el.shapeType==='star'?'نجمة':el.shapeType==='heart'?'قلب':el.shapeType==='arrow'?'سهم':el.shapeType==='hexagon'?'سداسي':el.shapeType==='bubble'?'فقاعة كلام':el.shapeType)) : (el.text||el.src||'عنصر');
     const label = el.name || defaultLabel;
     return `<li data-id="${el.id}" class="${el.id===state.selectedId?'selected':''} ${el.locked?'locked-el':''}">
       <span class="layer-label" data-rename="${el.id}" title="دبل كليك لإعادة التسمية">${icon} ${label.toString().slice(0,14)}</span>
@@ -1990,18 +2545,26 @@ function renderDrawer(){
   else if(activeTab==='elements'){
     body.innerHTML = `
       <button class="upload-btn" id="elUploadBtn">📤 إضافة صورة/عنصر (يُحفظ تلقائيًا)</button>
-      <div class="section-label">ملصقات إيموجي سريعة</div>
-      <div class="emoji-grid" id="emojiGrid"></div>
+      <div id="stickerCats"></div>
       <div class="section-label">صورك المضافة</div>
       <div class="asset-grid" id="elGrid"></div>`;
     document.getElementById('elUploadBtn').onclick = ()=>openUploader('element');
-    const eGrid = document.getElementById('emojiGrid');
-    STICKER_EMOJIS.forEach(em=>{
-      const div = document.createElement('div');
-      div.className = 'emoji-item';
-      div.textContent = em;
-      div.onclick = ()=> addEmojiSticker(em);
-      eGrid.appendChild(div);
+    const catsWrap = document.getElementById('stickerCats');
+    Object.keys(STICKER_CATEGORIES).forEach(cat=>{
+      const label = document.createElement('div');
+      label.className = 'section-label';
+      label.textContent = cat;
+      catsWrap.appendChild(label);
+      const eGrid = document.createElement('div');
+      eGrid.className = 'emoji-grid';
+      STICKER_CATEGORIES[cat].forEach(em=>{
+        const div = document.createElement('div');
+        div.className = 'emoji-item';
+        div.textContent = em;
+        div.onclick = ()=> addEmojiSticker(em);
+        eGrid.appendChild(div);
+      });
+      catsWrap.appendChild(eGrid);
     });
     const grid = document.getElementById('elGrid');
     if(!assetLibrary.elements.length){
@@ -2140,16 +2703,30 @@ function renderDrawer(){
       <div class="section-label">تأثيرات عامة على التصميم</div>
       <div class="prop-row"><label>تعتيم الحواف (Vignette)</label><input type="range" id="fxVignette" min="0" max="100" value="${fx.vignette}"></div>
       <div class="prop-row"><label>حبيبات (Grain)</label><input type="range" id="fxGrain" min="0" max="100" value="${fx.grain}"></div>
+      <div class="section-label">🧵 فلاتر تكسچر / نسيج</div>
+      <div class="asset-grid" id="textureGrid" style="margin-bottom:10px;"></div>
+      <div class="prop-row"><label>قوة التكسچر</label><input type="range" id="fxTextureOpacity" min="0" max="100" value="${fx.textureOpacity??50}"></div>
       <div class="section-label">إطار حول التصميم</div>
       <div class="asset-grid" id="frameGrid" style="margin-bottom:12px;"></div>
       <div class="prop-row"><label>لون الإطار</label><input type="color" id="fxFrameColor" value="${fx.frameColor}"></div>
       <div class="prop-row"><label>سمك الإطار</label><input type="range" id="fxFrameWidth" min="6" max="80" value="${fx.frameWidth}"></div>
     `;
+    const texIcons = {none:'🚫', paper:'📜', scratches:'🎞', weave:'🧶', lightLeak:'🌅', splatter:'💦', halftone:'⚪'};
+    const tg = document.getElementById('textureGrid');
+    TEXTURE_PRESETS.forEach(tp=>{
+      const div = document.createElement('div');
+      div.className = 'asset-item';
+      div.innerHTML = `<div class="swatch" style="display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--panel2);">${texIcons[tp.type]||'🧵'}</div><div class="lbl">${tp.name}</div>`;
+      if((fx.textureType||'none')===tp.type) div.style.borderColor = 'var(--teal)';
+      div.onclick = ()=>{ state.effects.textureType = tp.type; draw(); pushHistory(); renderDrawer(); };
+      tg.appendChild(div);
+    });
+    const frameIcons = {none:'🚫', solid:'🖼', double:'🖼', dashed:'🖼', corners:'📐', rounded:'⬜', polaroid:'📷', shadow:'🌑', neon:'💡', filmstrip:'🎬', torn:'📄'};
     const fg = document.getElementById('frameGrid');
     FRAME_PRESETS.forEach(fp=>{
       const div = document.createElement('div');
       div.className = 'asset-item';
-      div.innerHTML = `<div class="swatch" style="display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--panel2);">${fp.type==='none'?'🚫':'🖼'}</div><div class="lbl">${fp.name}</div>`;
+      div.innerHTML = `<div class="swatch" style="display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--panel2);">${frameIcons[fp.type]||'🖼'}</div><div class="lbl">${fp.name}</div>`;
       if(fx.frameType===fp.type) div.style.borderColor = 'var(--teal)';
       div.onclick = ()=>{ state.effects.frameType = fp.type; draw(); pushHistory(); renderDrawer(); };
       fg.appendChild(div);
@@ -2158,6 +2735,8 @@ function renderDrawer(){
     document.getElementById('fxVignette').onchange = ()=>pushHistory();
     document.getElementById('fxGrain').oninput = e=>{ state.effects.grain = +e.target.value; draw(); };
     document.getElementById('fxGrain').onchange = ()=>pushHistory();
+    document.getElementById('fxTextureOpacity').oninput = e=>{ state.effects.textureOpacity = +e.target.value; draw(); };
+    document.getElementById('fxTextureOpacity').onchange = ()=>pushHistory();
     document.getElementById('fxFrameColor').oninput = e=>{ state.effects.frameColor = e.target.value; draw(); };
     document.getElementById('fxFrameColor').onchange = ()=>pushHistory();
     document.getElementById('fxFrameWidth').oninput = e=>{ state.effects.frameWidth = +e.target.value; draw(); };
@@ -2362,6 +2941,8 @@ document.getElementById('addTriangleBtn').onclick = ()=>addShapeElement('triangl
 document.getElementById('addStarBtn').onclick = ()=>addShapeElement('star');
 document.getElementById('addHeartBtn').onclick = ()=>addShapeElement('heart');
 document.getElementById('addArrowBtn').onclick = ()=>addShapeElement('arrow');
+document.getElementById('addHexagonBtn').onclick = ()=>addShapeElement('hexagon');
+document.getElementById('addBubbleBtn').onclick = ()=>addShapeElement('bubble');
 document.getElementById('dupBtn').onclick = duplicateSelected;
 document.getElementById('bringFrontBtn').onclick = ()=>reorderSelected(1);
 document.getElementById('sendBackBtn').onclick = ()=>reorderSelected(-1);
@@ -2391,6 +2972,57 @@ document.getElementById('loadProjectInput').onchange = e=>{
   if(!file) return;
   file.text().then(txt=>{ restoreSnapshot(txt); pushHistory(); });
   e.target.value = '';
+};
+
+/* ---------- Named drafts (multiple saved designs in localStorage) ---------- */
+function loadDrafts(){
+  try{ return JSON.parse(localStorage.getItem('qs_drafts')||'[]'); }catch(e){ return []; }
+}
+function saveDrafts(list){
+  try{ localStorage.setItem('qs_drafts', JSON.stringify(list)); }catch(e){ alert('تعذر حفظ المسودة، مساحة التخزين ممتلئة على الأرجح.'); }
+}
+document.getElementById('saveDraftBtn').onclick = ()=>{
+  const name = prompt('اكتب اسم المسودة:', 'مسودة ' + new Date().toLocaleDateString('ar-EG'));
+  if(!name) return;
+  const drafts = loadDrafts();
+  drafts.unshift({ id: Date.now(), name, date: new Date().toISOString(), data: snapshot() });
+  if(drafts.length > 30) drafts.length = 30;
+  saveDrafts(drafts);
+  alert('تم حفظ المسودة "' + name + '"');
+  closeSidebar();
+};
+document.getElementById('myDraftsBtn').onclick = ()=>{
+  const root = document.getElementById('modalRoot');
+  const renderList = ()=>{
+    const drafts = loadDrafts();
+    root.innerHTML = `<div class="modal-overlay" id="draftsModal"><div class="modal-box">
+      <h2>📚 مسوداتي المحفوظة</h2>
+      ${drafts.length ? `<ul class="layers-list" style="max-height:340px; overflow-y:auto;">${drafts.map(d=>`
+        <li style="cursor:default;">
+          <span class="layer-label" style="cursor:pointer;" data-load="${d.id}">🗂 ${d.name} <span style="color:var(--muted2); font-size:11px;">(${new Date(d.date).toLocaleDateString('ar-EG')})</span></span>
+          <span class="layer-icons"><span data-del="${d.id}" title="حذف">🗑</span></span>
+        </li>`).join('')}</ul>` : `<div class="empty-note">لسه مفيش مسودات محفوظة.<br>استخدم "حفظ كمسودة باسم" لحفظ تصميمك الحالي.</div>`}
+      <button class="modal-close" id="closeDrafts">إغلاق</button>
+    </div></div>`;
+    root.querySelectorAll('[data-load]').forEach(elm=>{
+      elm.onclick = ()=>{
+        const d = loadDrafts().find(x=>x.id==elm.dataset.load);
+        if(d && confirm('تحميل هذه المسودة سيستبدل التصميم الحالي، متأكد؟')){
+          restoreSnapshot(d.data); pushHistory(); root.innerHTML=''; closeSidebar();
+        }
+      };
+    });
+    root.querySelectorAll('[data-del]').forEach(elm=>{
+      elm.onclick = ()=>{
+        if(!confirm('حذف هذه المسودة نهائيًا؟')) return;
+        saveDrafts(loadDrafts().filter(x=>x.id!=elm.dataset.del));
+        renderList();
+      };
+    });
+    document.getElementById('closeDrafts').onclick = ()=>{ root.innerHTML=''; };
+    document.getElementById('draftsModal').onclick = e=>{ if(e.target.id==='draftsModal') root.innerHTML=''; };
+  };
+  renderList();
 };
 
 document.getElementById('exportTemplateBtn').onclick = ()=>{
@@ -2491,11 +3123,12 @@ document.getElementById('shareImgBtn').onclick = ()=>{
   closeSidebar();
 };
 document.getElementById('batchExportBtn').onclick = async ()=>{
-  if(!confirm('هيتم تنزيل التصميم بـ 5 مقاسات شائعة (منشور مربع، ستوري، بانر، غلاف تويتر، ثمبنيل يوتيوب) كملفات منفصلة. تكمل؟')) return;
+  if(!confirm('هيتم تنزيل التصميم بـ 7 مقاسات شائعة (منشور مربع، ستوري، بانر، غلاف تويتر، ثمبنيل يوتيوب، لينكدإن، بروفايل) كملفات منفصلة. تكمل؟')) return;
   const sizes = [
     {w:1080,h:1080,name:'square'}, {w:1080,h:1920,name:'story'},
     {w:1200,h:630,name:'post'}, {w:1500,h:500,name:'twitter-cover'},
-    {w:1280,h:720,name:'youtube-thumb'}
+    {w:1280,h:720,name:'youtube-thumb'}, {w:1200,h:627,name:'linkedin'},
+    {w:800,h:800,name:'profile'}
   ];
   const origW = state.canvasW, origH = state.canvasH;
   state.selectedId = null;
@@ -2513,6 +3146,46 @@ document.getElementById('batchExportBtn').onclick = async ()=>{
   }
   state.canvasW = origW; state.canvasH = origH;
   syncCanvasSize(); draw(); renderProps();
+};
+
+document.getElementById('exportVideoBtn').onclick = ()=>{
+  if(!canvas.captureStream || typeof MediaRecorder==='undefined'){
+    alert('متصفحك لا يدعم تصدير الفيديو. جرب فتح الاستوديو من متصفح Chrome على الكمبيوتر.');
+    return;
+  }
+  state.selectedId = null; renderProps();
+  const mimeCandidates = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  const mimeType = mimeCandidates.find(m=> MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || 'video/webm';
+  const stream = canvas.captureStream(30);
+  const chunks = [];
+  let recorder;
+  try{ recorder = new MediaRecorder(stream, {mimeType}); }
+  catch(e){ alert('تعذر بدء تسجيل الفيديو في هذا المتصفح.'); return; }
+  recorder.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+  recorder.onstop = ()=>{
+    const blob = new Blob(chunks, {type:'video/webm'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'quote-design.webm'; a.click();
+  };
+  recorder.start();
+  const duration = 1600, hold = 500;
+  const start = performance.now();
+  function frame(now){
+    const t = Math.min(1, (now-start)/duration);
+    draw();
+    ctx.save();
+    ctx.globalAlpha = 1 - t;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.restore();
+    if(t<1){ requestAnimationFrame(frame); }
+    else{
+      draw();
+      setTimeout(()=>{ recorder.stop(); }, hold);
+    }
+  }
+  requestAnimationFrame(frame);
+  closeSidebar();
 };
 
 /* ---------- Autosave indicator ---------- */
